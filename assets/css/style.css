@@ -37,3 +37,13 @@
 #backtotop-button.show:hover{
   background-color: rgb(70, 70, 70);
 }
+
+footer {
+  background-color: transparent;
+  color: black;
+  padding: 20px 0;
+}
+
+footer p {
+  margin-bottom: 0;
+}
