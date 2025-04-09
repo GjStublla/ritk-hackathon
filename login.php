@@ -37,18 +37,20 @@ if (isset($_POST['login_btn'])) {
                     if (password_verify($password, $row['password'])) {
                         $username = $row['username'];
                         $role = $row['role'];
+                        $user_id = $row['id'];
 
                         $_SESSION['username'] = $username;
                         $_SESSION['is_logged_in'] = true;
                         $_SESSION['role'] = $role;
-
+                        $_SESSION['user_id'] = $user_id;
+                        $_SESSION['email'] = $email;
 
                         setcookie("username", $username, time() + 120, "", "", true, true);
                         setcookie("is_logged_in", $_SESSION['is_logged_in'], time() + 120, "", "", true, true);
                         setcookie("role", $_SESSION['role'], time() + 120, "", "", true, true);
+                        setcookie("user_id", $user_id, time() + 120, "", "", true, true);
 
                         header("Location: index.php");
-
                     } else {
                         $errors[] = "Password is incorrect!";
                     }
@@ -102,7 +104,7 @@ if (isset($_POST['login_btn'])) {
                             </div>
                         <?php endif; ?>
 
-                        <div class="mt-4">
+                        <div class="mt-2">
                             <form method="POST" action="<?= htmlspecialchars($_SERVER['PHP_SELF']) ?>">
                                 <div class="mb-4">
                                     <label for="email" class="form-label text-muted">Email Address</label>

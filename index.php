@@ -5,6 +5,8 @@ $is_logged_in = $_SESSION['is_logged_in'] ?? $_COOKIE['is_logged_in'] ?? false;
 $username = $_SESSION['username'] ?? $_COOKIE['username'] ?? null;
 $user_role = $_SESSION['role'] ?? $_COOKIE['role'] ?? null;
 
+$cart_count = isset($_SESSION['cart']) ? array_sum($_SESSION['cart']) : 0;
+
 if(isset($_GET['action'])) {
     if($_GET['action'] === "logout") {
         
@@ -21,6 +23,7 @@ if(isset($_GET['action'])) {
         header("Location: index.php");
     }
 }
+
 ?>
 
 <!doctype html>

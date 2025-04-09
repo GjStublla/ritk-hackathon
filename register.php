@@ -1,4 +1,4 @@
-<?php 
+<?php
 session_start();
 include "db.php";
 
@@ -23,51 +23,103 @@ if (isset($_POST['register_btn'])) {
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
     $confirm_password = trim($_POST['confirm_password']);
-    $role = isset($_POST['role']) ? intval($_POST['role']) : 0; 
+    $role = isset($_POST['role']) ? intval($_POST['role']) : 0;
 
-    if (!empty($username) && !empty($email) && !empty($password) && !empty($confirm_password)) {
-        if (is_email($email)) {
-            if ($password === $confirm_password) {
+    // Enhanced validation
+
+    // Username validation
+    if (empty($username)) {
+        $errors[] = "Username is required!";
+    } elseif (strlen($username) < 3) {
+        $errors[] = "Username must be at least 3 characters long!";
+    } elseif (strlen($username) > 50) {
+        $errors[] = "Username must be less than 50 characters!";
+    } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+        $errors[] = "Username can only contain letters, numbers, and underscores!";
+    }
+
+    if (empty($email)) {
+        $errors[] = "Email is required!";
+    } elseif (!is_email($email)) {
+        $errors[] = "Email is not valid!";
+    }
+
+//    if (empty($password)) {
+//        $errors[] = "Password is required!";
+//    } elseif (strlen($password) < 8) {
+//        $errors[] = "Password must be at least 8 characters long!";
+//    } elseif (!preg_match('/[A-Z]/', $password)) {
+//        $errors[] = "Password must contain at least one uppercase letter!";
+//    } elseif (!preg_match('/[a-z]/', $password)) {
+//        $errors[] = "Password must contain at least one lowercase letter!";
+//    } elseif (!preg_match('/[0-9]/', $password)) {
+//        $errors[] = "Password must contain at least one number!";
+//    }
+
+
+    if (empty($confirm_password)) {
+        $errors[] = "Confirm password is required!";
+    } elseif ($password !== $confirm_password) {
+        $errors[] = "Password and Confirm password don't match!";
+    }
+
+    if ($role !== 0 && $role !== 1) {
+        $errors[] = "Invalid user role selected!";
+    }
+
+    // If no validation errors, proceed with registration
+    if (empty($errors)) {
+        $check_stmt = $mysqli->prepare("SELECT id FROM `users` WHERE `email` = ?");
+        $check_stmt->bind_param("s", $email);
+        $check_stmt->execute();
+        $check_stmt->store_result();
+
+        if ($check_stmt->num_rows > 0) {
+            $errors[] = "Email is already registered!";
+            $check_stmt->close();
+        } else {
+            $check_stmt->close();
+
+            // Also check if username is already taken
+            $check_username_stmt = $mysqli->prepare("SELECT id FROM `users` WHERE `username` = ?");
+            $check_username_stmt->bind_param("s", $username);
+            $check_username_stmt->execute();
+            $check_username_stmt->store_result();
+
+            if ($check_username_stmt->num_rows > 0) {
+                $errors[] = "Username is already taken!";
+                $check_username_stmt->close();
+            } else {
+                $check_username_stmt->close();
+
+                // All checks passed, insert the new user
                 $hashed_password = password_hash($password, PASSWORD_BCRYPT);
-                $check_stmt = $mysqli->prepare("SELECT id FROM `users` WHERE `email` = ?");
-                $check_stmt->bind_param("s", $email);
-                $check_stmt->execute();
-                $check_stmt->store_result();
+                $stmt = $mysqli->prepare("INSERT INTO `users` (`username`, `email`, `password`, `role`) VALUES (?, ?, ?, ?)");
+                $stmt->bind_param("sssi", $username, $email, $hashed_password, $role);
 
-                if ($check_stmt->num_rows > 0) {
-                    $errors[] = "Email is already registered!";
+                if ($stmt->execute()) {
+                    $user_id = $mysqli->insert_id;
+
+                    $_SESSION['username'] = $username;
+                    $_SESSION['is_logged_in'] = true;
+                    $_SESSION['role'] = $role;
+                    $_SESSION['user_id'] = $user_id;
+                    $_SESSION['email'] = $email;
+
+                    setcookie("username", $username, time() + 120, "", "", true, true);
+                    setcookie("is_logged_in", $_SESSION['is_logged_in'], time() + 120, "", "", true, true);
+                    setcookie("role", $_SESSION['role'], time() + 120, "", "", true, true);
+                    setcookie("user_id", $user_id, time() + 120, "", "", true, true);
+
+                    header("Location: index.php");
+                    exit;
                 } else {
-                    $stmt = $mysqli->prepare("INSERT INTO `users` (`username`, `email`, `password`, `role`) VALUES (?, ?, ?, ?)");
-                    $stmt->bind_param("sssi", $username, $email, $hashed_password, $role);
-
-                    if ($stmt->execute()) {
-                        $_SESSION['username'] = $username;
-                        $_SESSION['is_logged_in'] = true;
-                        $_SESSION['role'] = $role;
-
-            
-                        setcookie("username", $username, time() + 120, "", "", true, true);
-                        setcookie("is_logged_in", $_SESSION['is_logged_in'], time() + 120, "", "", true, true);
-                        setcookie("role", $_SESSION['role'], time() + 120, "", "", true, true);
-
-                        header("Location: index.php");
-                        exit;
-                    } else {
-                        $errors[] = "Registration failed!";
-                    }
-
-                    $stmt->close();
+                    $errors[] = "Registration failed: " . $mysqli->error;
                 }
 
-                $check_stmt->close();
-            } else {
-                $errors[] = "Password and Confirm password don't match!";
+                $stmt->close();
             }
-        } else {
-            $errors[] = "Email is not valid!";
         }
-    } else {
-        $errors[] = "All fields are required!";
     }
 }
 ?>
@@ -114,7 +166,7 @@ if (isset($_POST['register_btn'])) {
                                         <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
                                     </div>
                                 </div>
-                                <div class="row mb-2">
+                                <div class="row mb-3">
                                     <div class="col-12">
                                         <label for="email" class="form-label text-muted">Email Address</label>
                                         <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
