@@ -9,6 +9,29 @@
     font-size: 17px;
 }
 
+@media (max-width: 991.5px) {
+    .nav-link {
+        color: black!important;
+    }
+
+}
+
+.cart-dropdown {
+    width: 100%;
+    max-width: 550px;
+    min-width: 280px;
+}
+
+@media (max-width: 576px) {
+    .cart-dropdown {
+        padding: 0.5rem !important;
+    }
+
+    .cart-dropdown .card-body {
+        padding: 0.5rem !important;
+    }
+}
+
 .nav-link:hover {
     --underline-width: 100%;
 }

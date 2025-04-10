@@ -73,8 +73,7 @@
                         <p class="mb-0">&copy; 2024 Your Company. All rights reserved.</p>
                     </div>
                     <div class="col-md-6 text-center text-md-end">
-                        <p class="mb-0">Designed by <a href="#">Los
-                            Tigres</a></p>
+                        <p class="mb-0">Made by <a href="#">pixelperfect</a></p>
                     </div>
                 </div>
             </div>
