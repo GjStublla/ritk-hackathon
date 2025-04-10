@@ -53,6 +53,12 @@
         height: 100vh;
     }
 
+    @media (max-width: 725px) {
+        h1 {
+            padding-top: 150px!important;
+        }
+    }
+
 
     .display-3 {
         -webkit-animation: tracking-in-expand-fwd-bottom 0.8s cubic-bezier(0.215, 0.610, 0.355, 1.000) both;
@@ -88,6 +94,7 @@
     }
 
     p {
+        font-size: 17px;
         animation: appear linear;
         animation-timeline: view();
         animation-range: entry 0% cover 40%;
@@ -106,6 +113,7 @@
     }
 
     li {
+        font-size: 17px;
         animation: appear linear;
         animation-timeline: view();
         animation-range: entry 0% cover 40%;
@@ -113,6 +121,12 @@
 }
 
 #cards {
+
+    h2 {
+        animation: appear linear;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+    }
     .container {
         display: flex;
         width: 90vw;
@@ -438,6 +452,45 @@
 
     .price-range input {
         flex: 1;
+    }
+}
+
+#pricing {
+    .pricing-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+        border-radius: 15px;
+        animation: appear linear;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+    }
+
+    h2 {
+        animation: appear linear;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+    }
+
+    .pricing-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .feature-list li {
+        margin-bottom: 0.8rem;
+        color: #6c757d;
+
+    }
+
+    .popular-badge {
+        position: absolute;
+        top: -12px;
+        right: 20px;
+        border-radius: 20px;
+    }
+
+    .gradient-custom {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     }
 }
 

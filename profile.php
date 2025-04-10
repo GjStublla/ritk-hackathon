@@ -58,6 +58,22 @@ if (!$user_id || !$email) {
     $stmt->close();
 }
 
+// Get current resume info
+$resume_file = "";
+$resume_type = "";
+$resume_uploaded = "";
+
+$stmt = $mysqli->prepare("SELECT resume_file, resume_type, resume_uploaded FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($user_data = $result->fetch_assoc()) {
+    $resume_file = $user_data['resume_file'];
+    $resume_type = $user_data['resume_type'];
+    $resume_uploaded = $user_data['resume_uploaded'];
+}
+$stmt->close();
+
 if (isset($_POST['delete_account']) && $_POST['delete_account'] === "1") {
     $delete_password = $_POST['delete_password'] ?? '';
 
@@ -73,6 +89,11 @@ if (isset($_POST['delete_account']) && $_POST['delete_account'] === "1") {
     } elseif (!password_verify($delete_password, $user['password'])) {
         $errors[] = "Password is incorrect. Account not deleted.";
     } else {
+        // Delete resume file if exists
+        if (!empty($resume_file) && file_exists("uploads/resumes/" . $resume_file)) {
+            unlink("uploads/resumes/" . $resume_file);
+        }
+
         $delete_stmt = $mysqli->prepare("DELETE FROM users WHERE id = ?");
         $delete_stmt->bind_param("i", $user_id);
 
@@ -113,9 +134,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
         $errors[] = "Please enter a valid email address.";
     }
 
-//    if (!empty($new_password) && strlen($new_password) < 8) {
-//        $errors[] = "New password must be at least 8 characters long.";
-//    }
+    // Handle resume file upload
+    $resume_update = false;
+    $new_resume_file = $resume_file;
+    $new_resume_type = $resume_type;
+    $new_resume_uploaded = $resume_uploaded;
+
+    if (isset($_FILES['resume']) && $_FILES['resume']['error'] == 0) {
+        $allowed_types = ['application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'application/msword' => 'doc'];
+        $file_type = $_FILES['resume']['type'];
+
+        if (!array_key_exists($file_type, $allowed_types)) {
+            $errors[] = "Invalid file type. Please upload PDF, DOCX, or DOC files only.";
+        } else {
+            $file_ext = $allowed_types[$file_type];
+            $file_name = uniqid('resume_') . '_' . $user_id . '.' . $file_ext;
+            $upload_dir = 'uploads/resumes/';
+
+            // Create directory if it doesn't exist
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            if (move_uploaded_file($_FILES['resume']['tmp_name'], $upload_dir . $file_name)) {
+                // Delete old resume file if exists
+                if (!empty($resume_file) && file_exists($upload_dir . $resume_file)) {
+                    unlink($upload_dir . $resume_file);
+                }
+
+                $new_resume_file = $file_name;
+                $new_resume_type = $file_ext;
+                $new_resume_uploaded = date('Y-m-d H:i:s');
+                $resume_update = true;
+            } else {
+                $errors[] = "Error uploading resume file.";
+            }
+        }
+    } elseif (isset($_POST['delete_resume']) && $_POST['delete_resume'] == 1) {
+        // Delete resume file
+        if (!empty($resume_file) && file_exists("uploads/resumes/" . $resume_file)) {
+            unlink("uploads/resumes/" . $resume_file);
+        }
+        $new_resume_file = null;
+        $new_resume_type = null;
+        $new_resume_uploaded = null;
+        $resume_update = true;
+    }
 
     if (empty($errors)) {
         // Get current user data from database to verify password
@@ -131,10 +195,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
         } elseif (!password_verify($current_password, $user['password'])) {
             $errors[] = "Current password is incorrect.";
         } else {
-            if (!empty($new_password)) {
+            // Update user data based on what's changing
+            if (!empty($new_password) && $resume_update) {
+                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                $update_stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ?, password = ?, 
+                                               resume_file = ?, resume_type = ?, resume_uploaded = ? WHERE id = ?");
+                $update_stmt->bind_param("ssssssi", $new_username, $new_email, $hashed_password,
+                    $new_resume_file, $new_resume_type, $new_resume_uploaded, $user_id);
+            } elseif (!empty($new_password)) {
                 $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
                 $update_stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?");
                 $update_stmt->bind_param("sssi", $new_username, $new_email, $hashed_password, $user_id);
+            } elseif ($resume_update) {
+                $update_stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ?, 
+                                               resume_file = ?, resume_type = ?, resume_uploaded = ? WHERE id = ?");
+                $update_stmt->bind_param("sssssi", $new_username, $new_email,
+                    $new_resume_file, $new_resume_type, $new_resume_uploaded, $user_id);
             } else {
                 $update_stmt = $mysqli->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
                 $update_stmt->bind_param("ssi", $new_username, $new_email, $user_id);
@@ -145,6 +221,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
                 $_SESSION['email'] = $new_email;
                 $success = "Profile updated successfully.";
 
+                // Update resume display variables
+                $resume_file = $new_resume_file;
+                $resume_type = $new_resume_type;
+                $resume_uploaded = $new_resume_uploaded;
 
                 if (isset($_COOKIE['username'])) {
                     setcookie("username", $new_username, time() + 120, "", "", true, true);
@@ -163,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Edit Profile | </title>
+    <title>Hackathon Template</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -172,13 +252,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
 
 <?php include './assets/components/navbar.php' ?>
 
-<section class="login d-flex align-items-center justify-content-center">
+<section class="login profile-section py-5" style="padding-top: 100px!important;">
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-6 col-sm-12">
-                <div class="card shadow-lg mx-auto rounded-4" style="max-width: 480px;">
-                    <div class="card-body">
-                        <div class="text-center">
+            <div class="col-lg-8 col-md-10 col-sm-12">
+                <div class="card shadow-lg mx-auto rounded-4">
+                    <div class="card-body p-md-4 p-3">
+                        <div class="text-center mb-4">
                             <h1 class="card-title h3">Edit Profile</h1>
                             <p class="card-text text-muted">Update your account information below</p>
                         </div>
@@ -194,69 +274,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
                         <?php elseif ($success): ?>
                             <div class="alert alert-success mt-3"><?= htmlspecialchars($success) ?></div>
                         <?php endif; ?>
+
                         <div class="mt-4">
-                            <form method="POST" action="<?= htmlspecialchars($_SERVER['PHP_SELF']) ?>">
-                                <div class="row">
-                                    <div class="col-12">
+                            <form method="POST" action="<?= htmlspecialchars($_SERVER['PHP_SELF']) ?>" enctype="multipart/form-data">
+                                <!-- Username and Email in one row on larger screens -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6 mb-3 mb-md-0">
                                         <label for="username" class="form-label text-muted">Username</label>
                                         <input type="text" class="form-control" id="username" name="username"
                                                value="<?= htmlspecialchars($username) ?>" required>
                                     </div>
-                                </div>
-                                <div class="row py-2">
-                                    <div class="col-12">
+                                    <div class="col-md-6">
                                         <label for="email" class="form-label text-muted">Email</label>
                                         <input type="email" class="form-control" id="email" name="email"
                                                value="<?= htmlspecialchars($email) ?>" required>
                                     </div>
                                 </div>
-                                <div class="row py-2">
-                                    <div class="col-6">
-                                        <label for="new_password" class="form-label text-muted">New Password
-                                            </label>
+
+                                <!-- Resume Upload Section -->
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label for="resume" class="form-label text-muted">Resume (PDF, DOCX, DOC)</label>
+                                        <input type="file" class="form-control" id="resume" name="resume" accept=".pdf,.docx,.doc">
+
+                                        <?php if (!empty($resume_file)): ?>
+                                            <div class="mt-2 p-2 bg-light rounded border">
+                                                <div class="row align-items-center">
+                                                    <div class="col-md-8 col-sm-12 mb-2 mb-md-0">
+                                                        <small class="text-muted">Current resume:
+                                                            <span class="text-dark"><?= htmlspecialchars($resume_file) ?></span>
+                                                        </small>
+                                                        <br>
+                                                        <small class="text-muted">Uploaded:
+                                                            <span class="text-dark"><?= date('M j, Y', strtotime($resume_uploaded)) ?></span>
+                                                        </small>
+                                                    </div>
+                                                    <div class="col-md-4 col-sm-12 text-md-end">
+                                                        <div class="d-flex gap-2 justify-content-md-end justify-content-start">
+                                                            <a href="uploads/resumes/<?= htmlspecialchars($resume_file) ?>"
+                                                               class="btn btn-sm btn-outline-primary" target="_blank">View</a>
+                                                            <button type="submit" name="delete_resume" value="1"
+                                                                    class="btn btn-sm btn-outline-danger"
+                                                                    onclick="return confirm('Are you sure you want to delete your resume?')">
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="mt-1">
+                                                <small class="text-muted">No resume uploaded yet. Upload your resume to apply for jobs.</small>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <!-- Password fields side by side -->
+                                <div class="row mb-4">
+                                    <div class="col-md-6 mb-3 mb-md-0">
+                                        <label for="new_password" class="form-label text-muted">New Password</label>
                                         <input type="password" class="form-control" id="new_password"
                                                name="new_password" placeholder="optional">
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-md-6">
                                         <label for="current_password" class="form-label text-muted">Current Password
                                             <span class="text-danger">*</span></label>
                                         <input type="password" class="form-control" id="current_password"
                                                name="current_password" required>
                                     </div>
                                 </div>
+
                                 <div class="row">
-                                    <div class="col-12 d-flex align-items-center justify-content-center py-3">
-                                        <button type="submit" class="btn btn-dark">Save Changes</button>
-                                    </div>
-                                </div>
-                            </form>
-
-
-                            <hr class="my-1">
-
-                            <!-- Delete Account Section -->
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="text-center mb-3 mt-2">
-                                        <h5 class="text-danger">Delete Account</h5>
-                                        <p class="text-muted small">This action cannot be undone.</p>
-                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
+                                    <div class="col-12 d-flex align-items-center justify-content-center py-2">
+                                        <button type="submit" class="btn btn-dark px-4 py-2 w-50">Save Changes</button>
+                                        <button type="button" class="btn btn-outline-danger px-4 py-2 mx-3 w-50" data-bs-toggle="modal"
                                                 data-bs-target="#deleteAccountModal">
                                             Delete My Account
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Modal Outside Card -->
 </section>
 
+<!-- Delete Account Modal -->
 <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel"
      aria-hidden="true">
     <div class="modal-dialog">
@@ -286,9 +393,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_account'])) {
     </div>
 </div>
 
+<?php include './assets/components/footer.php' ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous">
+</script>
+
+<script>
+    window.addEventListener('scroll', function() {
+        var scrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+        var navbar = document.querySelector('nav');
+
+        if (scrollPosition > 50) {
+            navbar.classList.add('scrolled');
+            var navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(function(link) {
+                link.classList.add('scrolled');
+            });
+        } else {
+            navbar.classList.remove('scrolled');
+            var navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(function(link) {
+                link.classList.remove('scrolled');
+            });
+        }
+    });
 </script>
 </body>
 </html>

@@ -29,11 +29,9 @@
                 <div class="col-lg-2 col-md-6">
                     <h3 class="footer-title">Links</h3>
                     <ul class="footer-links">
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Services</a></li>
-                        <li><a href="#">Products</a></li>
-                        <li><a href="#">Blog</a></li>
-                        <li><a href="#">Contact</a></li>
+                        <li><a href="profile.php">Profile</a></li>
+                        <li><a href="jobs.php">Jobs</a></li>
+                        <li><a href="index.php#contact">Contact</a></li>
                     </ul>
                 </div>
 
